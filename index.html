@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WOT Product Consultant</title>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f2f5; height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -81,6 +82,8 @@ button:hover { background: #2d5986; }
 button:disabled { background: #ccc; cursor: default; }
 
 .disclaimer { padding: 6px 16px 10px; font-size: 11px; color: #999; text-align: center; }
+.turnstile-wrap { padding: 6px 16px 0; display: flex; justify-content: center; }
+.captcha-notice { padding: 8px 16px; font-size: 12px; color: #c00; text-align: center; display: none; }
 
 .bubble table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px; }
 .bubble th { background: #1a3a5c; color: #fff; padding: 6px 10px; text-align: left; font-weight: 600; white-space: nowrap; }
@@ -104,18 +107,50 @@ button:disabled { background: #ccc; cursor: default; }
     </div>
   </div>
   <div class="messages" id="messages"></div>
-  <div class="input-area">
-    <textarea id="input" placeholder="Describe what you need to test..." rows="1" onkeydown="handleKey(event)"></textarea>
-    <button id="sendBtn" onclick="sendMessage()">➤</button>
+  <div class="turnstile-wrap">
+    <!-- Replace REPLACE_WITH_SITE_KEY with your Cloudflare Turnstile site key -->
+    <!-- Get keys: https://dash.cloudflare.com/?to=/:account/turnstile -->
+    <div class="cf-turnstile"
+         data-sitekey="REPLACE_WITH_SITE_KEY"
+         data-callback="onTurnstileSuccess"
+         data-expired-callback="onTurnstileExpired"
+         data-theme="light"
+         data-size="normal">
+    </div>
   </div>
-  <div class="disclaimer">Prototype · Powered by AI · Product data from worldoftest.com</div>
+  <div class="captcha-notice" id="captchaNotice">Please complete the CAPTCHA above to send a message.</div>
+  <div class="input-area">
+    <textarea id="input" placeholder="Complete the CAPTCHA above first..." rows="1" onkeydown="handleKey(event)" disabled></textarea>
+    <button id="sendBtn" onclick="sendMessage()" disabled>➤</button>
+  </div>
+  <div class="disclaimer">Powered by AI · Product data from worldoftest.com</div>
 </div>
 
 <script>
 const messagesEl = document.getElementById('messages');
 const inputEl = document.getElementById('input');
 const sendBtn = document.getElementById('sendBtn');
+const captchaNotice = document.getElementById('captchaNotice');
 let history = [];
+let cfToken = '';   // Cloudflare Turnstile token
+
+function onTurnstileSuccess(token) {
+  cfToken = token;
+  inputEl.disabled = false;
+  inputEl.placeholder = 'Describe what you need to test...';
+  sendBtn.disabled = false;
+  captchaNotice.style.display = 'none';
+  inputEl.focus();
+}
+
+function onTurnstileExpired() {
+  cfToken = '';
+  inputEl.disabled = true;
+  inputEl.placeholder = 'CAPTCHA expired — please verify again...';
+  sendBtn.disabled = true;
+  captchaNotice.style.display = 'block';
+  captchaNotice.textContent = 'CAPTCHA expired. Please verify again.';
+}
 
 function addMessage(role, html) {
   const div = document.createElement('div');
@@ -171,8 +206,11 @@ async function sendMessage() {
     const res = await fetch('api.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, history: history.slice(-8) })
+      body: JSON.stringify({ message: text, history: history.slice(-8), cf_token: cfToken })
     });
+    // Reset token after use — Turnstile tokens are single-use
+    cfToken = '';
+    if (window.turnstile) window.turnstile.reset();
     const data = await res.json();
     removeTyping();
 
@@ -226,7 +264,7 @@ function formatResponse(text, images = {}) {
 // Welcome message
 window.onload = () => {
   setTimeout(() => {
-    addMessage('bot', "Hi there! I'm your WOT product consultant. I can help you find the right testing equipment for your needs.<br><br>What are you looking to test? For example: <em>\"rubber hardness\"</em>, <em>\"plastic tensile strength\"</em>, or <em>\"paint adhesion\"</em>.");
+    addMessage('bot', "Hi! I'm WOT Bot — I help you find the right testing equipment.<br><br>Complete the CAPTCHA above to start. Then ask me anything, e.g. <em>\"rubber hardness tester\"</em> or <em>\"paint adhesion\"</em>.");
   }, 300);
 };
 </script>
