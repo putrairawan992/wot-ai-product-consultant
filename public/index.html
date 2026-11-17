@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qualitest Product Consultant</title>
+<link rel="preconnect" href="https://www.worldoftest.com" crossorigin>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #eef1f5; height: 100vh; display: flex; align-items: center; justify-content: center; }
+
+.chat-container {
+  width: 440px; max-width: 100vw; height: 640px;
+  background: #fff; border-radius: 16px;
+  box-shadow: 0 10px 44px rgba(0,0,0,0.16);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+.chat-header {
+  background: #16324f; color: #fff;
+  padding: 14px 18px; display: flex; align-items: center; gap: 12px;
+  flex-shrink: 0;
+}
+.chat-header .brand { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.chat-header .brand img { height: 26px; width: auto; max-width: 100%; display: block; align-self: flex-start; object-fit: contain; }
+.chat-header h2 { font-size: 14px; font-weight: 600; letter-spacing: 0.2px; }
+.chat-header p { font-size: 11.5px; color: rgba(255,255,255,0.72); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ai-badge { background: #2f6fa8; color: #fff; font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 6px; border-radius: 4px; }
+
+.messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.messages::-webkit-scrollbar { width: 5px; }
+.messages::-webkit-scrollbar-thumb { background: #d8dde3; border-radius: 3px; }
+
+.message { max-width: 90%; }
+.message.bot { align-self: flex-start; }
+.message.user { align-self: flex-end; }
+
+.bubble { padding: 11px 14px; border-radius: 14px; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.bot .bubble { background: #f2f4f7; color: #1b1f24; border-bottom-left-radius: 4px; }
+.user .bubble { background: #16324f; color: #fff; border-bottom-right-radius: 4px; }
+
+.bubble a { color: #1a5fb4; text-decoration: none; font-weight: 500; }
+.bubble a:hover { text-decoration: underline; }
+.bubble strong { font-weight: 600; }
+.bubble .preview { color: #5b6b7c; font-style: italic; }
+.bubble p { margin: 6px 0; }
+.bubble p:first-child { margin-top: 0; }
+.bubble p:last-child { margin-bottom: 0; }
+
+.typing { display: flex; gap: 4px; padding: 13px 16px; background: #f2f4f7; border-radius: 14px; border-bottom-left-radius: 4px; width: fit-content; }
+.typing span { width: 7px; height: 7px; background: #97a3b0; border-radius: 50%; animation: bounce 1.2s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-7px)} }
+
+.quick-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.quick-btn {
+  border: 1px solid #c9d3de; background: #fff; color: #16324f;
+  border-radius: 999px; padding: 7px 13px; font-size: 13px; font-family: inherit;
+  cursor: pointer; line-height: 1.2; width: auto; height: auto;
+}
+.quick-btn:hover { border-color: #16324f; }
+.quick-btn.quote { background: #f07f24; border-color: #f07f24; color: #fff; font-weight: 600; }
+.quick-btn.quote:hover { background: #d76f16; border-color: #d76f16; }
+
+.input-area { padding: 12px 16px; border-top: 1px solid #e9edf1; display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0; }
+textarea {
+  flex: 1; border: 1px solid #d3dae2; border-radius: 20px;
+  padding: 10px 16px; font-size: 16px; resize: none; outline: none;
+  max-height: 88px; min-height: 42px; line-height: 1.45; font-family: inherit;
+}
+textarea:focus { border-color: #16324f; }
+button.send {
+  width: 42px; height: 42px; background: #16324f; color: #fff;
+  border: none; border-radius: 50%; cursor: pointer; font-size: 17px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: background 0.2s;
+}
+button.send:hover { background: #24507a; }
+button.send:disabled { background: #b9c2cc; cursor: default; }
+
+.disclaimer { padding: 6px 16px 10px; font-size: 11px; color: #97a3b0; text-align: center; }
+.captcha-wrap { padding: 8px 16px 0; display: none; justify-content: center; }
+.captcha-notice { padding: 8px 16px; font-size: 12px; color: #c0392b; text-align: center; display: none; }
+
+.bubble table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px; }
+.bubble th { background: #16324f; color: #fff; padding: 6px 10px; text-align: left; font-weight: 600; }
+.bubble td { padding: 5px 10px; border-bottom: 1px solid #e4e9ee; vertical-align: top; }
+.bubble tr:last-child td { border-bottom: none; }
+.bubble ul { padding-left: 18px; margin: 6px 0; }
+.bubble li { margin: 3px 0; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 8px 0; }
+.prod-img { display: block; width: 100%; max-width: 190px; height: 130px; object-fit: contain; border-radius: 6px; border: 1px solid #e1e6eb; margin: 8px 0 2px; background: #fff; }
+</style>
+</head>
+<body>
+<div class="chat-container">
+  <div class="chat-header">
+    <div class="brand">
+      <img id="brandLogo" src="https://www.worldoftest.com/sites/default/files/inline-images/logo-light.png" alt="Qualitest">
+      <h2>Qualitest Product Consultant</h2>
+      <p><span class="ai-badge">AI assistant</span> Testing equipment specialists, replies in seconds</p>
+    </div>
+  </div>
+
+  <div class="messages" id="messages"></div>
+
+  <div class="captcha-wrap" id="captchaWrap"></div>
+  <div class="captcha-notice" id="captchaNotice">Please complete the verification above to send a message.</div>
+
+  <div class="input-area">
+    <textarea id="input" placeholder="Describe what you need to test..." rows="1"></textarea>
+    <button class="send" id="sendBtn" type="button" aria-label="Send">&#10148;</button>
+  </div>
+  <div class="disclaimer">AI assistant. Product data from worldoftest.com</div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var WOT_HOST = 'worldoftest.com';
+  var CONTACT_URL = 'https://www.worldoftest.com/contact/';
+  var BROWSE_URL = 'https://www.worldoftest.com/product-categories';
+
+  var messagesEl = document.getElementById('messages');
+  var inputEl = document.getElementById('input');
+  var sendBtn = document.getElementById('sendBtn');
+  var captchaWrap = document.getElementById('captchaWrap');
+  var captchaNotice = document.getElementById('captchaNotice');
+  var brandLogo = document.getElementById('brandLogo');
+
+  var history = [];
+  var cfToken = '';
+  var turnstileSiteKey = '';
+  var lastRecommendedUrl = '';
+  var sending = false;
+  var sessionId = (function () {
+    try {
+      var existing = localStorage.getItem('wot_session_id');
+      if (existing) return existing;
+      var id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+      localStorage.setItem('wot_session_id', id);
+      return id;
+    } catch (e) {
+      return 'anon-' + Date.now();
+    }
+  })();
+
+  // ── ESCAPING / RENDERING ────────────────────────────────────────────────────
+  var ESCAPE_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) { return ESCAPE_MAP[ch]; });
+  }
+
+  function safeUrl(raw) {
+    var url = String(raw || '').replace(/&amp;/g, '&').trim();
+    if (!url) return null;
+    var parsed;
+    try { parsed = new URL(url, window.location.href); } catch (e) { return null; }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    var host = parsed.hostname.toLowerCase();
+    if (host !== WOT_HOST && host.slice(-(WOT_HOST.length + 1)) !== '.' + WOT_HOST) return null;
+    return parsed.href;
+  }
+
+  var images = {};
+
+  function linkHtml(label, rawUrl) {
+    var safe = safeUrl(rawUrl);
+    if (!safe) return label;                 // unknown or foreign URL renders as text
+    var canonical = safe.replace(/\/(?=$)/, '/');
+    var image = images[canonical] || images[safe];
+    var imgHtml = '';
+    var imgSafe = image ? safeUrl(image) : null;
+    if (imgSafe && !/\.svg$/i.test(imgSafe)) {
+      imgHtml = '<img class="prod-img" src="' + escapeHtml(imgSafe) + '" alt="' + label + '" loading="lazy" referrerpolicy="no-referrer">';
+    }
+    return imgHtml + '<a href="' + escapeHtml(safe) + '" target="_blank" rel="noopener noreferrer nofollow">' + label + '</a>';
+  }
+
+  function inline(text) {
+    var out = text.replace(
+      /\[([^\]\n]{1,140})\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s,)<>\]]+)/g,
+      function (match, label, url1, url2) {
+        if (label !== undefined && url1 !== undefined) return linkHtml(label, url1);
+        return linkHtml(url2, url2);          // text is already escaped at this point
+      }
+    );
+    out = out.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    out = out.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+    return out;
+  }
+
+  function splitRow(line) {
+    return line.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(function (cell) {
+      return inline(cell.trim());
+    });
+  }
+
+  function renderMarkdown(raw) {
+    var lines = escapeHtml(raw).split(/\r?\n/);
+    var html = '';
+    var i = 0;
+    while (i < lines.length) {
+      var line = lines[i];
+
+      if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|[\s:|\-]+\|\s*$/.test(lines[i + 1])) {
+        var head = splitRow(line);
+        var rows = [];
+        var j = i + 2;
+        while (j < lines.length && /^\s*\|.*\|\s*$/.test(lines[j])) { rows.push(splitRow(lines[j])); j++; }
+        html += '<div class="table-wrap"><table><thead><tr>' +
+          head.map(function (c) { return '<th>' + c + '</th>'; }).join('') +
+          '</tr></thead><tbody>' +
+          rows.map(function (r) {
+            return '<tr>' + r.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>';
+          }).join('') +
+          '</tbody></table></div>';
+        i = j;
+        continue;
+      }
+
+      if (/^\s*(?:[-*]|\d+\.)\s+/.test(line)) {
+        var items = [];
+        var k = i;
+        while (k < lines.length && /^\s*(?:[-*]|\d+\.)\s+/.test(lines[k])) {
+          items.push(inline(lines[k].replace(/^\s*(?:[-*]|\d+\.)\s+/, '')));
+          k++;
+        }
+        html += '<ul>' + items.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul>';
+        i = k;
+        continue;
+      }
+
+      if (line.trim() === '') { i++; continue; }
+
+      var para = [];
+      var p = i;
+      while (p < lines.length && lines[p].trim() !== '' &&
+             !/^\s*\|.*\|\s*$/.test(lines[p]) && !/^\s*(?:[-*]|\d+\.)\s+/.test(lines[p])) {
+        para.push(lines[p]);
+        p++;
+      }
+      html += '<p>' + para.map(inline).join('<br>') + '</p>';
+      i = p;
+    }
+    return html;
+  }
+
+  function addMessage(role, html) {
+    var wrap = document.createElement('div');
+    wrap.className = 'message ' + role;
+    var bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = html;                // html is produced only by renderMarkdown
+    // Product images arrive after the text; keep the newest answer in view.
+    bubble.querySelectorAll('img').forEach(function (img) {
+      img.addEventListener('load', function () { messagesEl.scrollTop = messagesEl.scrollHeight; });
+    });
+    wrap.appendChild(bubble);
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return bubble;
+  }
+
+  function showTyping() {
+    var wrap = document.createElement('div');
+    wrap.className = 'message bot';
+    wrap.id = 'typing';
+    wrap.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+  function removeTyping() {
+    var t = document.getElementById('typing');
+    if (t) t.remove();
+  }
+
+  function rememberRecommendation(bubble) {
+    var first = bubble.querySelector('a[href*="worldoftest.com"]');
+    if (first && first.href.indexOf('/contact/') === -1 && first.href.indexOf('/product-categories') === -1) {
+      lastRecommendedUrl = first.href;
+    }
+  }
+
+  // ── QUICK ACTIONS ───────────────────────────────────────────────────────────
+  function quickActions() {
+    var bar = document.createElement('div');
+    bar.className = 'quick-actions';
+    [
+      { label: 'Metal hardness', send: 'Metal hardness' },
+      { label: 'Tensile testing', send: 'Tensile testing' },
+      { label: 'Salt spray / corrosion', send: 'Salt spray / corrosion' },
+      { label: 'Request a quote', quote: true }
+    ].forEach(function (action) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'quick-btn' + (action.quote ? ' quote' : '');
+      btn.textContent = action.label;
+      btn.addEventListener('click', function () {
+        if (action.quote) {
+          window.open(lastRecommendedUrl || CONTACT_URL, '_blank', 'noopener');
+          return;
+        }
+        inputEl.value = action.send;
+        sendMessage();
+      });
+      bar.appendChild(btn);
+    });
+    return bar;
+  }
+
+  // ── SEND ────────────────────────────────────────────────────────────────────
+  function payloadFor(text) {
+    return {
+      message: text,
+      history: history.slice(-8),
+      cf_token: cfToken,
+      session_id: sessionId
+    };
+  }
+
+  // Buffered path: the original JSON contract, also the fallback when streaming fails.
+  function askBuffered(payload) {
+    return fetch('api.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (res) {
+      return res.json().catch(function () {
+        return { error: 'Unexpected response from the server.' };
+      });
+    });
+  }
+
+  // Streamed path: server-sent events, still escaped-then-rendered by renderMarkdown.
+  function askStreaming(payload, handlers) {
+    return fetch('api.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+      body: JSON.stringify(payload)
+    }).then(function (res) {
+      var type = res.headers.get('Content-Type') || '';
+      if (!res.ok || type.indexOf('text/event-stream') === -1 || !res.body || !res.body.getReader) {
+        throw new Error('stream unavailable');
+      }
+
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var acc = '';
+      var rewrite = '';
+      var final = null;
+
+      function handleFrame(frame) {
+        var line = frame.split('\n').filter(function (l) { return l.indexOf('data:') === 0; })[0];
+        if (!line) return;
+        var event;
+        try {
+          event = JSON.parse(line.slice(5).trim());
+        } catch (e) {
+          return;
+        }
+        if (event.error) throw new Error(event.error);
+        if (typeof event.preview === 'string' && event.preview && handlers.onPreview) {
+          handlers.onPreview(event.preview);
+        }
+        if (typeof event.delta === 'string' && event.delta) {
+          acc += event.delta;
+          if (handlers.onDelta) handlers.onDelta(acc);
+        }
+        if (typeof event.rewrite === 'string') rewrite = event.rewrite;
+        if (event.done) final = event;
+      }
+
+      function pump() {
+        return reader.read().then(function (chunk) {
+          if (chunk.done) return true;
+          buffer += decoder.decode(chunk.value, { stream: true });
+          var idx;
+          while ((idx = buffer.indexOf('\n\n')) !== -1) {
+            handleFrame(buffer.slice(0, idx));
+            buffer = buffer.slice(idx + 2);
+          }
+          return false;
+        }).then(function (finished) {
+          return finished ? null : pump();
+        });
+      }
+
+      return pump().then(function () {
+        return {
+          reply: final && final.reply ? final.reply : (rewrite || acc),
+          images: (final && final.images) || {}
+        };
+      });
+    });
+  }
+
+  function sendMessage() {
+    var text = inputEl.value.trim();
+    if (!text || sending) return;
+
+    addMessage('user', escapeHtml(text));
+    history.push({ role: 'user', content: text });
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    sending = true;
+    sendBtn.disabled = true;
+    showTyping();
+
+    var payload = payloadFor(text);
+    var bubble = null;
+
+    function ensureBubble(html) {
+      if (!bubble) {
+        removeTyping();
+        bubble = addMessage('bot', html || '');
+      } else {
+        bubble.innerHTML = html || '';
+      }
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return bubble;
+    }
+
+    function finish(reply, imageMap, asError) {
+      images = imageMap || {};
+      var target = ensureBubble(renderMarkdown(reply || ''));
+      if (asError) {
+        target.innerHTML = '<em>' + escapeHtml(reply || '') + '</em>';
+        return;
+      }
+      rememberRecommendation(target);
+      history.push({ role: 'assistant', content: reply || '' });
+    }
+
+    function reset() {
+      sending = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+      if (cfToken && window.turnstile) {
+        cfToken = '';
+        window.turnstile.reset();
+      }
+    }
+
+    askStreaming(payload, {
+      onPreview: function (preview) {
+        if (bubble) return;                    // never overwrite streamed text
+        ensureBubble('<em class="preview">' + escapeHtml(preview) + '</em>');
+      },
+      onDelta: function (partial) {
+        ensureBubble(renderMarkdown(partial)); // typing indicator dies with the first delta
+      }
+    }).then(function (out) {
+      finish(out.reply, out.images);
+      reset();
+    }).catch(function () {
+      return askBuffered(payload).then(function (data) {
+        if (data && data.error) {
+          finish(data.error, {}, true);
+          if (data.code === 'captcha_failed' && window.turnstile) window.turnstile.reset();
+          reset();
+          return;
+        }
+        finish((data && data.reply) || '', (data && data.images) || {});
+        reset();
+      }).catch(function () {
+        removeTyping();
+        addMessage('bot', '<em>Connection error. Please try again.</em>');
+        reset();
+      });
+    });
+  }
+
+  // ── EVENTS ──────────────────────────────────────────────────────────────────
+  sendBtn.addEventListener('click', sendMessage);
+  inputEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  inputEl.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 88) + 'px';
+  });
+  brandLogo.addEventListener('error', function () {
+    this.style.display = 'none';
+  });
+
+  // ── TURNSTILE (only when the API reports a sitekey) ─────────────────────────
+  function enableTurnstile(siteKey) {
+    turnstileSiteKey = siteKey;
+    captchaWrap.style.display = 'flex';
+    var holder = document.createElement('div');
+    holder.className = 'cf-turnstile';
+    holder.setAttribute('data-sitekey', siteKey);
+    holder.setAttribute('data-theme', 'light');
+    holder.setAttribute('data-callback', 'wotTurnstileSuccess');
+    holder.setAttribute('data-expired-callback', 'wotTurnstileExpired');
+    captchaWrap.appendChild(holder);
+
+    window.wotTurnstileSuccess = function (token) {
+      cfToken = token;
+      captchaNotice.style.display = 'none';
+    };
+    window.wotTurnstileExpired = function () {
+      cfToken = '';
+      captchaNotice.textContent = 'Verification expired. Please verify again.';
+      captchaNotice.style.display = 'block';
+    };
+
+    var script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
+  function boot() {
+    addMessage('bot',
+      '<p>Hi there! Tell me what you need to test and I\'ll shortlist the right equipment for you. ' +
+      'You can describe your sample, the property you\'re measuring, or the standard you need to meet.</p>');
+    messagesEl.appendChild(quickActions());
+
+    fetch('api.php?config=1', { headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (cfg) {
+        if (cfg && cfg.turnstile_sitekey) enableTurnstile(cfg.turnstile_sitekey);
+      })
+      .catch(function () { /* widget still works without CAPTCHA */ });
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

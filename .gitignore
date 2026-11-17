@@ -1,4 +1,30 @@
+# --- secrets ---
 .env
+env
 *.log
+
+# --- runtime data (never published: query log, rate-limit buckets, image cache) ---
+data/*
+!data/.htaccess
+*.db
+*.sqlite
+
+# --- dependencies / vendored trees ---
 /vendor/
+vendor/
+composer.phar
+
+# --- local Drupal site used as a mock (installed locally, not part of the app) ---
+web/
+
+# --- raw catalog dumps: 19 MB of TSV scrapes, rebuildable from the WOT host ---
+catalog/raw/
+
+# --- test artifacts ---
+tests/out/
+tests/__pycache__/
+__pycache__/
+*.pyc
+
+# --- OS noise ---
 .DS_Store

@@ -1,0 +1,299 @@
+{
+ "generated": "2026-11-17T07:00:37Z",
+ "count": 1822,
+ "coverage": {
+  "standards": 902,
+  "standards_pct": 49.5,
+  "application": 1588,
+  "application_pct": 87.2,
+  "spec_summary": 1488,
+  "spec_summary_pct": 81.7,
+  "image": 1815,
+  "image_pct": 99.6,
+  "category": 1683,
+  "category_pct": 92.4
+ },
+ "category_source": {
+  "inherited": 1050,
+  "direct": 633,
+  "none": 139
+ },
+ "per_category": [
+  [
+   "Metal Testing Equipment",
+   202
+  ],
+  [
+   "Rubber & Elastomer Testing Equipment",
+   143
+  ],
+  [
+   "Portable Testers",
+   114
+  ],
+  [
+   "Flexible Packaging & Film Testing Equipment",
+   95
+  ],
+  [
+   "Plastic Testing Equipment",
+   94
+  ],
+  [
+   "Environmental Chambers",
+   88
+  ],
+  [
+   "Color, Paint & Coating Testing Equipment",
+   84
+  ],
+  [
+   "Petroleum Testing Equipment",
+   74
+  ],
+  [
+   "Spectroscopy & Analytical Instruments",
+   71
+  ],
+  [
+   "Cement Testing Equipment",
+   69
+  ],
+  [
+   "Geosynthetics and Geotextile Testing Equipment",
+   57
+  ],
+  [
+   "Metrology Equipment",
+   56
+  ],
+  [
+   "Cable & Wire Testing Equipment",
+   52
+  ],
+  [
+   "Water Quality & Moisture Analysis",
+   46
+  ],
+  [
+   "Metallography Equipment",
+   42
+  ],
+  [
+   "Asphalt Testing Equipment",
+   36
+  ],
+  [
+   "Battery Testing Equipment",
+   34
+  ],
+  [
+   "Textile Testing Equipment",
+   32
+  ],
+  [
+   "Coal Testing Equipment",
+   29
+  ],
+  [
+   "Concrete Testing Equipment",
+   28
+  ],
+  [
+   "Freeze Dryers",
+   28
+  ],
+  [
+   "Paper & Cardboard Testing Equipment",
+   27
+  ],
+  [
+   "Semiconductor and Electronics Reliability Testing Equipment",
+   26
+  ],
+  [
+   "Pharmaceutical Testing Equipment",
+   25
+  ],
+  [
+   "Soil Testing Equipment",
+   23
+  ],
+  [
+   "Plastics PVC / Pipe Testing Equipment",
+   20
+  ],
+  [
+   "CNC Milling & Lathe Machines",
+   17
+  ],
+  [
+   "Automotive Testing Equipment",
+   15
+  ],
+  [
+   "Adhesive Tape Testing Equipment",
+   11
+  ],
+  [
+   "Fire and Flammability Testing Equipment",
+   10
+  ],
+  [
+   "Microscopes",
+   7
+  ],
+  [
+   "Medical Testing Equipment",
+   7
+  ],
+  [
+   "Face Mask Testing Equipment",
+   5
+  ],
+  [
+   "Analytical Balances",
+   5
+  ],
+  [
+   "Gold Tester and Precious Metal Analyzers",
+   4
+  ],
+  [
+   "Rock and Aggregates Testing Equipment",
+   3
+  ],
+  [
+   "PPE Testing Equipment",
+   2
+  ],
+  [
+   "XRF Analyzers",
+   2
+  ]
+ ],
+ "top_standards": [
+  [
+   "ISO 9001",
+   31
+  ],
+  [
+   "ISO 6508",
+   26
+  ],
+  [
+   "ASTM E18",
+   25
+  ],
+  [
+   "ISO 6506",
+   22
+  ],
+  [
+   "ASTM E110",
+   20
+  ],
+  [
+   "ASTM D638",
+   18
+  ],
+  [
+   "ISO 6507",
+   18
+  ],
+  [
+   "ASTM E23",
+   17
+  ],
+  [
+   "ISO 7500-1",
+   17
+  ],
+  [
+   "ASTM E10",
+   16
+  ],
+  [
+   "EN 196",
+   16
+  ],
+  [
+   "ASTM D412",
+   15
+  ],
+  [
+   "ISO 148",
+   14
+  ],
+  [
+   "ASTM E4",
+   14
+  ],
+  [
+   "ASTM D3330",
+   13
+  ],
+  [
+   "ASTM D882",
+   13
+  ],
+  [
+   "ISO 148-1",
+   12
+  ],
+  [
+   "ISO 17025",
+   12
+  ],
+  [
+   "DIN 5122",
+   12
+  ],
+  [
+   "ISO 2813",
+   12
+  ],
+  [
+   "ASTM D790",
+   11
+  ],
+  [
+   "ASTM A956",
+   11
+  ],
+  [
+   "ASTM E384",
+   11
+  ],
+  [
+   "ASTM D1894",
+   11
+  ],
+  [
+   "ASTM D76",
+   11
+  ],
+  [
+   "ISO 10360-7",
+   11
+  ],
+  [
+   "ASTM A1038",
+   10
+  ],
+  [
+   "ISO 20427",
+   10
+  ],
+  [
+   "ISO 178",
+   9
+  ],
+  [
+   "ASTM E8",
+   9
+  ]
+ ],
+ "unique_standards": 1508,
+ "products_without_category": 139
+}
