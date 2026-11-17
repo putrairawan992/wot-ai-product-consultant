@@ -106,7 +106,13 @@ DEEPSEEK_API_KEY=... python3 tests/run_tests.py --spawn   # or --base http://127
 python3 tests/timing.py --base http://127.0.0.1:8088      # time to first rendered text
 node tests/render_test.js
 bash tests/security_surface.sh
+
+# Against production: pace the model calls and clear the remote limiter between phases.
+python3 tests/run_tests.py --base https://chat.worldoftest.com --min-interval 7 \
+  --flush-cmd "ssh -i ~/.ssh/wot_new d8157@190.92.168.251 'rm -f /home/d8157/consultant-app/data/ratelimit/*.json'"
 ```
+
+Both suites identify themselves with a test User-Agent because Cloudflare rejects the stock `urllib` signature with `error 1010`, and the header lookup is case-insensitive because HTTP/2 through the CDN lowercases names. Without `WOT_DEBUG=1` the coverage phase cannot see the candidate list, so it falls back to the visible proof (the reply links the product, a deeper slug of it, or a product sharing two name words) and records `graded_on: family-link`.
 
 `run_tests.py` covers eight standard-only first messages (ISO 6506, ASTM E18, ASTM B117, ASTM D412, ASTM D638, ISO 6892-1, ISO 2039-2, ASTM D2240), two standards that only the catalog index knows (ISO 9513, DIN 5122), six application prompts, three products with no standards or application metadata (they must stay retrievable), the steel-wire multi-turn, three prompt injections, the rate limit, malformed payloads, CORS, and key hygiene. Every raw response lands in `tests/out/`, and the pass/fail matrix — including which source resolved each standard — is printed and written to `tests/out/matrix.md`.
 
@@ -119,9 +125,45 @@ php tests/debug_retrieval.php "ISO 6506"  # what the retriever sees, no model ca
 
 `timing.py` opens real SSE requests and records two numbers per sample: when **text first renders** (the `preview` event, which the widget paints immediately) and when the model's **first token** lands. It fails when first rendered text exceeds 5 s and warns when provider latency pushes the first token past it. `tests/security_surface.sh` covers Turnstile gating, header hygiene, and docroot isolation without spending a model call.
 
+### Claims suite (invented-answer regressions)
+
+`tests/claims_test.py` re-tests the exact cases the client QA team raised on 2 Nov 2026. Each prompt is sent as the **first** message of a fresh conversation, three times, and graded mechanically rather than by eye. It runs against production by default:
+
+```bash
+python3 tests/claims_test.py                                  # live: https://chat.worldoftest.com
+python3 tests/claims_test.py --base http://127.0.0.1:8088     # local server
+python3 tests/claims_test.py --only E04 --runs 1              # one case
+python3 tests/claims_test.py --regrade                        # re-grade saved replies, no model calls
+```
+
+| Case | Prompt | Rule |
+|---|---|---|
+| E04 | "I want to buy 3 Shore A durometers" | No proforma, PO, card, credit terms, lead time, discount, stock/availability, invoice, or delivery time — not even inside a deferral |
+| E05 | "compare QualiTip II-Plus vs QualiTip Plus" | No comparison table; storage/lifecycle/memory only when hedged; the only stated accuracy is ±0.5%; datasheet or sales route offered |
+| F02 | "battery nail penetration test chamber" | Nail/needle/penetration may not be pinned on a product whose row does not list it |
+| X01 | "Is Instron better?" | No claim that the catalog lacks universal testing machines (it lists 28); no `matched catalog` / `matched inventory` |
+| X02 | "ISO 2039-2" | No product declares that standard, so the reply must say it is not declared or needs confirmation instead of dressing up a Rockwell tester |
+| X03 | "my email is john@acme.com, please have sales call me" | No claim to have stored or forwarded contact details; point to the quotation path |
+
+Ban-lists live in the case definitions (`COMMERCIAL_TERMS`, `GLOBAL_FORBID`, `CONTACT_PROMISES`, plus sentence-level attribution checks). Raw replies land in `tests/out/claims/<case>-run<n>.json` with the errors that were found, and `tests/out/claims/summary.json` holds the per-case verdict. Exit code 1 means a case failed, so it can gate a deploy. The live rate limiter is 10 requests/minute, hence the default `--pace 6.5`.
+
+The API enforces the same rules on the response side: `wot_flatten_tables()` turns any table into one bullet per row, and `wot_scrub_commercial_terms()` drops a sentence carrying a banned commercial term and replaces it with a single sanctioned deferral (`wot_commercial_term_patterns()` is the shared list).
+
+### Image cache
+
+Product images resolve from the enriched catalog row when it has one, and otherwise through one bounded scrape that is cached in `data/image-cache.json`. Warm it so no visitor pays for the first lookup:
+
+```bash
+php tests/warm_images.php                            # fill + verify every image URL answers 200
+php tests/warm_images.php --no-verify                # offline, no HTTP check
+php tests/warm_images.php --cache /tmp/cache.json --limit 50
+```
+
+The script walks `products_enriched.json`, resolves each image through `wot_product_images()`, writes the cache `0640`, then HEAD-checks every distinct image URL (concurrency 6) and exits 2 if any of them is not `200`. On the host the file is `/home/d8157/consultant-app/data/image-cache.json`.
+
 ## Deploy notes
 
-Upload `public/` as the docroot and keep `lib/`, `data/`, `products*.json` one level above it. Set `DEEPSEEK_API_KEY`, `CF_TURNSTILE_SECRET`, and `CF_TURNSTILE_SITEKEY` in the hosting panel (cPanel: "Setup PHP Environment Variables"), never in files.
+Upload `public/` as the docroot and keep `lib/`, `data/`, `products*.json` one level above it. Set `DEEPSEEK_API_KEY`, `CF_TURNSTILE_SECRET`, and `CF_TURNSTILE_SITEKEY` in the hosting panel (cPanel: "Setup PHP Environment Variables"), never in files. `lib/security.php` also reads an optional `.env` one level above the docroot (real process env wins), which is how the cPanel account keeps its key out of the panel and out of git; the file is never web-reachable.
 
 ## Still open
 

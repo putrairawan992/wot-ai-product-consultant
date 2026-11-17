@@ -7,6 +7,38 @@ declare(strict_types=1);
  * No secrets live in this file; every credential is read from the environment.
  */
 
+/**
+ * Minimal .env loader. The file lives one level above the docroot and is never
+ * web-reachable. Real process env wins, so cPanel "Environment Variables" still
+ * overrides the file. Absent file = no-op, which keeps local CLI runs unchanged.
+ */
+(static function (): void {
+    $path = getenv('WOT_ENV_FILE') ?: dirname(__DIR__) . '/.env';
+    if (!is_file($path) || !is_readable($path)) {
+        return;
+    }
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines ?: [] as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#' || !str_contains($line, '=')) {
+            continue;
+        }
+        [$key, $value] = explode('=', $line, 2);
+        $key = trim($key);
+        if ($key === '' || getenv($key) !== false) {
+            continue;
+        }
+        $value = trim($value);
+        $len = strlen($value);
+        if ($len >= 2 && (($value[0] === '"' && $value[$len - 1] === '"') || ($value[0] === "'" && $value[$len - 1] === "'"))) {
+            $value = substr($value, 1, -1);
+        }
+        putenv($key . '=' . $value);
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+    }
+})();
+
 const WOT_SITE_HOST   = 'worldoftest.com';
 const WOT_CONTACT_URL = 'https://www.worldoftest.com/contact/';
 const WOT_BROWSE_URL  = 'https://www.worldoftest.com/product-categories';

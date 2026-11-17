@@ -361,6 +361,332 @@ function wot_strip_internal_phrasing(string $reply): string
 }
 
 /**
+ * Commercial-term regexes. One list, used by the post-check so the prompt rule and the
+ * scrubber can never drift apart. These are the terms the client banned outright after the
+ * 2 Nov 2026 review: quoting them, even inside a polite deferral, counts as inventing a
+ * commercial commitment.
+ *
+ * @return list<string>
+ */
+function wot_commercial_term_patterns(): array
+{
+    return [
+        '/\bpro\s*forma\b/i',
+        '/\bpurchase orders?\b/i',
+        '/(?<![A-Za-z0-9])P\.?\s?O\.?(?![A-Za-z0-9])/i',
+        '/\bcard payment\b|\bcredit cards?\b|\bpayment cards?\b|\bpay by card\b/i',
+        '/\bpayment terms\b|\bcredit terms\b|\bnet\s?(?:15|30|45|60|90)\b/i',
+        '/\blead[\s-]?times?\b/i',
+        '/\bdiscounts?\b|\bvolume pricing\b|\btiered pricing\b|\bbulk pricing\b/i',
+        '/\bin stock\b|\bstock (?:level|levels|availability|status)\b|\bavailable stock\b|\bout of stock\b|\bavailability\b/i',
+        '/\bdelivery (?:time|times|date|dates|estimate|schedule)\b|\bdelivery (?:in|within)\b|\bships? (?:in|within)\b|\bshipping (?:time|times|date|dates)\b/i',
+        '/\binvoices?\b|\binvoicing\b/i',
+    ];
+}
+
+/** The only commercial sentence an answer may carry. */
+const WOT_COMMERCIAL_DEFERRAL = 'The sales team confirms price and the remaining commercial terms through the [request a quotation](https://www.worldoftest.com/contact/).';
+
+/**
+ * Strips payment-term and delivery language the model wrote anyway. A sentence that
+ * carries a banned commercial term is dropped and replaced by the single sanctioned
+ * deferral, at most once per reply; a leading question in the same sentence survives.
+ */
+function wot_scrub_commercial_terms(string $reply): string
+{
+    if ($reply === '') {
+        return $reply;
+    }
+    $patterns = wot_commercial_term_patterns();
+    // The model sometimes writes the sanctioned deferral itself; then a scrubbed sentence
+    // must not add a second copy of it.
+    $deferred = str_contains($reply, WOT_COMMERCIAL_DEFERRAL);
+    $paragraphs = preg_split('/\R/u', $reply) ?: [$reply];
+
+    foreach ($paragraphs as $index => $paragraph) {
+        if (trim($paragraph) === '') {
+            continue;
+        }
+        $kept = [];
+        foreach (preg_split('/(?<=[.!?])\s+/u', trim($paragraph)) ?: [] as $sentence) {
+            $hit = false;
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $sentence) === 1) {
+                    $hit = true;
+                    break;
+                }
+            }
+            if (!$hit) {
+                $kept[] = $sentence;
+                continue;
+            }
+            // Keep the visitor-facing question if the banned clause trails it.
+            $question = strrpos($sentence, '?');
+            if ($question !== false) {
+                $head = trim(substr($sentence, 0, $question + 1));
+                if ($head !== '') {
+                    $kept[] = $head;
+                }
+            }
+            if (!$deferred) {
+                $kept[]   = WOT_COMMERCIAL_DEFERRAL;
+                $deferred = true;
+            }
+        }
+        $paragraphs[$index] = implode(' ', $kept);
+    }
+
+    $out = trim(implode("\n", array_filter($paragraphs, static fn($p) => trim($p) !== '')));
+    return $out === '' ? trim($reply) : $out;
+}
+
+/**
+ * Turns a markdown table into one bullet per row. The client banned comparison tables:
+ * a column layout reads as a spec sheet even when every cell is true, so the content is
+ * kept (each value stays traceable to CANDIDATES) and the format is not.
+ */
+function wot_flatten_tables(string $reply): string
+{
+    if (!str_contains($reply, '|')) {
+        return $reply;
+    }
+    $lines = preg_split('/\R/u', $reply) ?: [];
+    $out   = [];
+    $total = count($lines);
+
+    for ($i = 0; $i < $total; $i++) {
+        if (preg_match('/^\s*\|.*\|\s*$/u', $lines[$i]) !== 1) {
+            $out[] = $lines[$i];
+            continue;
+        }
+        $block = [];
+        while ($i < $total && preg_match('/^\s*\|.*\|\s*$/u', $lines[$i]) === 1) {
+            $block[] = $lines[$i];
+            $i++;
+        }
+        $i--;
+
+        $rows = [];
+        foreach ($block as $line) {
+            if (preg_match('/^\s*\|[\s:\-|]*-{3,}[\s:\-|]*\|?\s*$/u', $line) === 1) {
+                continue; // separator row
+            }
+            $stripped = rtrim(ltrim(trim($line), '|'));
+            $stripped = rtrim($stripped, '|');
+            $rows[] = array_map('trim', explode('|', $stripped));
+        }
+        if ($rows === []) {
+            continue;
+        }
+        $headers = array_shift($rows);
+        foreach ($rows as $cells) {
+            $attribute = trim((string) ($cells[0] ?? ''));
+            $parts     = [];
+            $count     = count($cells);
+            for ($j = 1; $j < $count; $j++) {
+                $value = trim((string) $cells[$j]);
+                if ($value === '') {
+                    continue;
+                }
+                $label = trim((string) ($headers[$j] ?? ''));
+                $label = preg_replace('/^\[([^\]]+)\]\([^)]*\)$/u', '$1', $label) ?? $label;
+                $parts[] = ($label !== '' ? $label . ': ' : '') . $value;
+            }
+            if ($parts === []) {
+                continue;
+            }
+            $out[] = '- ' . ($attribute !== '' ? $attribute . ': ' : '') . implode('; ', $parts);
+        }
+    }
+
+    return implode("\n", $out);
+}
+
+/**
+ * The mirror image of an invented spec: telling the visitor a field is "not stated in the
+ * listing" when the candidate row does state it. The model did exactly that on QualiTip
+ * Plus accuracy and scales, so a sentence that denies a field the row carries is dropped.
+ * Only fires when the sentence names exactly one candidate, so a mixed sentence is left
+ * alone rather than guessed at.
+ *
+ * @param list<array<string,mixed>> $candidates
+ */
+function wot_scrub_false_negatives(string $reply, array $candidates): string
+{
+    if ($reply === '' || $candidates === []) {
+        return $reply;
+    }
+
+    $blobs = [];
+    foreach ($candidates as $candidate) {
+        $blob = implode(' ', [
+            (string) ($candidate['name'] ?? ''),
+            (string) ($candidate['application'] ?? ''),
+            (string) ($candidate['spec_summary'] ?? ''),
+            implode(' ', (array) ($candidate['standards'] ?? [])),
+        ]);
+        $blobs[wot_ensure_slash((string) ($candidate['url'] ?? ''))] = $blob;
+    }
+
+    $fields = [
+        '/\baccuracy\b/i',
+        '/\bscales?\b|\bHR[ABC]?\b|\bHB\b|\bHV\b|\bHL\b|\bHS\b/',
+        '/\bdisplay\b|\bOLED\b|\bLCD\b/i',
+        '/\bstorage\b|\bmemory\b/i',
+        '/\bimpact (?:device|devices|body|bodies)\b/i',
+        '/\bASTM\b|\bISO\b|\bDIN\b/i',
+    ];
+    $denial = '/\b(?:not|never)\s+(?:stated|listed|specified|shown|documented|quoted)\b|\b(?:does|do)\s*n[o\']t\s+(?:state|list|specify|show)\b/i';
+
+    $paragraphs = preg_split('/\R/u', $reply) ?: [$reply];
+    foreach ($paragraphs as $index => $paragraph) {
+        if (trim($paragraph) === '') {
+            continue;
+        }
+        $kept    = [];
+        $current = null; // last candidate this paragraph talked about, one at a time
+        foreach (preg_split('/(?<=[.!?])\s+/u', trim($paragraph)) ?: [] as $sentence) {
+            $named = [];
+            foreach ($blobs as $url => $blob) {
+                if (str_contains($sentence, $url) || str_contains($sentence, rtrim($url, '/'))) {
+                    $named[$url] = $blob;
+                }
+            }
+            if (count($named) === 1) {
+                $current = array_key_first($named);
+            } elseif (count($named) > 1) {
+                $current = null;
+            }
+            if (preg_match($denial, $sentence) !== 1 || $current === null) {
+                $kept[] = $sentence;
+                continue;
+            }
+            $blob = $blobs[$current];
+            $denies = false;
+            foreach ($fields as $field) {
+                if (preg_match($field, $sentence) === 1 && preg_match($field, (string) $blob) === 1) {
+                    $denies = true;
+                    break;
+                }
+            }
+            if (!$denies) {
+                $kept[] = $sentence;
+            }
+        }
+        $paragraphs[$index] = implode(' ', $kept);
+    }
+
+    $out = trim(implode("\n", array_filter($paragraphs, static fn($p) => trim($p) !== '')));
+    return $out === '' ? trim($reply) : $out;
+}
+
+/**
+ * Strips a clause that pins a requested feature on a product whose row never mentions it.
+ * "Explosion-proof chamber, the containment type usually specified around penetration work"
+ * is exactly the inference the client rejected: the chamber row says nothing about
+ * penetration. Feature words come from the understood query (subject tokens), so this stays
+ * data-driven instead of carrying a list of banned products.
+ *
+ * The sentence is left whole when it hedges ("no listed model declares", "needs
+ * confirmation") or when stripping would leave nothing to read.
+ *
+ * @param list<array<string,mixed>> $candidates
+ * @param list<string> $featureWords
+ */
+function wot_scrub_unbacked_features(string $reply, array $candidates, array $featureWords): string
+{
+    $featureWords = array_values(array_filter(array_map(
+        static fn($w) => strtolower(trim((string) $w)),
+        $featureWords
+    ), static fn($w) => strlen($w) >= 3));
+    if ($reply === '' || $candidates === [] || $featureWords === []) {
+        return $reply;
+    }
+
+    $blobs = [];
+    foreach ($candidates as $candidate) {
+        $blobs[wot_ensure_slash((string) ($candidate['url'] ?? ''))] = strtolower(implode(' ', [
+            (string) ($candidate['name'] ?? ''),
+            (string) ($candidate['application'] ?? ''),
+            (string) ($candidate['spec_summary'] ?? ''),
+            implode(' ', (array) ($candidate['standards'] ?? [])),
+        ]));
+    }
+
+    $hedge = '/\b(?:not\s+(?:listed|declared|stated|specified|documented|supported)'
+        . '|no\s+listed\s+(?:model|product|unit)'
+        . '|need(?:s|ed)?\s+(?:to\s+be\s+)?confirm(?:ed|ation)?'
+        . '|must\s+confirm|confirm\s+(?:that\s+)?with|cannot\s+(?:confirm|verify)'
+        . '|can\s*n[o\']t\s+(?:confirm|verify)|whether|to\s+be\s+confirmed'
+        . '|not\s+among|unable\s+to\s+(?:confirm|verify))\b/i';
+
+    $paragraphs = preg_split('/\R/u', $reply) ?: [$reply];
+    foreach ($paragraphs as $index => $paragraph) {
+        if (trim($paragraph) === '') {
+            continue;
+        }
+        $kept    = [];
+        $current = null;
+        foreach (preg_split('/(?<=[.!?])\s+/u', trim($paragraph)) ?: [] as $sentence) {
+            $named = [];
+            foreach ($blobs as $url => $blob) {
+                if (str_contains($sentence, $url) || str_contains($sentence, rtrim($url, '/'))) {
+                    $named[$url] = $blob;
+                }
+            }
+            if (count($named) === 1) {
+                $current = array_key_first($named);
+            } elseif (count($named) > 1) {
+                $current = null;
+            }
+            if ($current === null || preg_match($hedge, $sentence) === 1) {
+                $kept[] = $sentence;
+                continue;
+            }
+            $blob = $blobs[$current];
+            $unbacked = [];
+            foreach ($featureWords as $word) {
+                if (preg_match('/\b' . preg_quote($word, '/') . '\b/i', $sentence) === 1
+                    && !str_contains($blob, $word)) {
+                    $unbacked[] = $word;
+                }
+            }
+            if ($unbacked === []) {
+                $kept[] = $sentence;
+                continue;
+            }
+            $clauses = preg_split('/(?<=[,;])\s+/u', $sentence) ?: [$sentence];
+            $survivors = [];
+            foreach ($clauses as $clause) {
+                $hit = false;
+                foreach ($unbacked as $word) {
+                    if (preg_match('/\b' . preg_quote($word, '/') . '\b/i', $clause) === 1) {
+                        $hit = true;
+                        break;
+                    }
+                }
+                if (!$hit) {
+                    $survivors[] = rtrim($clause);
+                }
+            }
+            $rewritten = trim(implode(', ', array_map(static fn($c) => rtrim(trim($c), ','), $survivors)));
+            if (strlen(rtrim($rewritten, ':,;')) < 24) {
+                $kept[] = $sentence; // nothing usable left; leave the sentence for the model to own
+                continue;
+            }
+            if (!preg_match('/[.!?]$/u', $rewritten)) {
+                $rewritten = rtrim($rewritten, ' ,;:') . '.';
+            }
+            $kept[] = $rewritten;
+        }
+        $paragraphs[$index] = implode(' ', $kept);
+    }
+
+    $out = trim(implode("\n", array_filter($paragraphs, static fn($p) => trim($p) !== '')));
+    return $out === '' ? trim($reply) : $out;
+}
+
+/**
  * A consultant answer that recommends nothing is not an answer. If the model replied
  * without citing a supplied candidate, append the top candidates so the visitor always
  * gets a real product link.
